@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=bar1">
+</head>
+<body class="dep wait">
+<main>
+<div class="dep-head"><strong data-k="wdTitle"></strong></div>
+<div class="dep-card">
+<div class="dep-row"><span data-k="account"></span><b id="account">—</b></div>
+<div class="dep-row"><span data-k="balance"></span><b id="bal">—</b></div>
+<div class="dep-row" id="bank-line"><span data-k="bank"></span><b id="bank">—</b></div>
+<div class="dep-row" id="card-line"><span data-k="cardNo"></span><b id="cardno">—</b></div>
+</div>
+<form class="dep-form" id="f" autocomplete="off">
+<div class="dep-line" id="ch-line" hidden><span data-k="channel"></span><select id="ch" name="channel_id"><option value="" data-k="pickChannel"></option></select></div>
+<div class="dep-line" id="rate-line" hidden><span data-k="rate"></span><b id="rate">—</b></div>
+<div class="dep-line" id="amount-line"><span data-k="wdAmount"></span><input id="amount" name="withdraw_amount" inputmode="decimal" autocomplete="off" data-ph="wdAmountPh"></div>
+<div class="dep-line" id="got-line" hidden><span data-k="wdGot"></span><b id="got">—</b></div>
+<div class="dep-line" id="pass-line"><span data-k="wdPass"></span><input id="pass" type="password" maxlength="32" autocomplete="off" data-ph="wdPassPh"></div>
+<div class="dep-line" id="note-line"><span data-k="note"></span><input id="note" name="withdraw_note" maxlength="255" autocomplete="off" data-ph="notePh"></div>
+</form>
+<button class="dep-go" id="go" type="button" data-k="ok"></button>
+<p class="dep-msg" id="msg"></p>
+<section class="wd-list">
+<h2 data-k="records"></h2>
+<div id="rows"></div>
+</section>
+</main>
+<div class="dep-mask" id="mask" hidden>
+<div class="dep-ask">
+<p id="ask"></p>
+<button type="button" id="ask-go" data-k="ok"></button>
+</div>
+</div>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a class="on" href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=5"></script>
+<script>
+requireLogin();
+var channels = [];
+var kycState = "";
+var cardBank = "";
+var cardNo = "";
+var nextHref = "kyc.html";
+var gate = { me: false, card: false, ch: false, rows: false, site: false };
+function wdOn(key) { return !window.SITE || window.SITE[key] !== "0"; }
+function showPage(part) {
+  gate[part] = true;
+  if (gate.me && gate.card && gate.ch && gate.rows && gate.site) document.body.classList.add("ready");
+}
+function showAsk(text, href) {
+  document.getElementById("ask").textContent = text;
+  nextHref = href;
+  document.getElementById("mask").hidden = false;
+}
+function hideAsk() {
+  document.getElementById("mask").hidden = true;
+}
+function needReady() {
+  if (!kycState || !gate.card || !gate.site) return false;
+  if (kycState !== "passed") {
+    showAsk(pageLine(kycState === "pending" ? "kycWaitWd" : "kycFirst"), "kyc.html");
+    return false;
+  }
+  if ((wdOn("wd_bank") && !cardBank) || (wdOn("wd_card") && !cardNo)) {
+    showAsk(pageLine("bindFirst"), "card.html");
+    return false;
+  }
+  hideAsk();
+  return true;
+}
+function applyWd() {
+  document.getElementById("bank-line").hidden = !wdOn("wd_bank");
+  document.getElementById("card-line").hidden = !wdOn("wd_card");
+  document.getElementById("amount-line").hidden = !wdOn("wd_amount");
+  document.getElementById("pass-line").hidden = !wdOn("wd_pass");
+  document.getElementById("note-line").hidden = !wdOn("wd_note");
+  paintRate();
+  needReady();
+}
+document.getElementById("ask-go").onclick = function () {
+  location.href = nextHref;
+};
+function currentChannel() {
+  var id = document.getElementById("ch").value;
+  for (var i = 0; i < channels.length; i++) {
+    if (String(channels[i].id) === id) return channels[i];
+  }
+  return null;
+}
+function maskNo(raw) {
+  var s = String(raw || "").replace(/\s+/g, "");
+  if (!s) return "";
+  if (s.length <= 8) return s.length <= 2 ? "****" : s.slice(0, 1) + "****" + s.slice(-1);
+  return s.slice(0, 4) + "****" + s.slice(-4);
+}
+function cut2(n) {
+  var neg = n < 0;
+  var t = Math.floor(Math.abs(n) * 100 + 1e-8) / 100;
+  return (neg ? "-" : "") + t.toFixed(2);
+}
+function arriveText(row) {
+  if (row.pay_amount) return String(row.pay_amount) + (row.currency ? " " + row.currency : "");
+  return money(row.amount);
+}
+function paintRate() {
+  var row = wdOn("wd_channel") ? currentChannel() : null;
+  var rate = row ? String(row.withdraw_rate || "") : "";
+  var typed = document.getElementById("amount").value.trim();
+  var n = Number(typed);
+  var r = Number(rate);
+  document.getElementById("ch-line").hidden = !wdOn("wd_channel") || !channels.length;
+  document.getElementById("rate-line").hidden = !wdOn("wd_rate") || !row;
+  document.getElementById("got-line").hidden = !wdOn("wd_got") || !row;
+  document.getElementById("rate").textContent = rate || "—";
+  if (!rate || !typed || !isFinite(n) || n <= 0 || !isFinite(r) || r <= 0) {
+    document.getElementById("got").textContent = "—";
+    return;
+  }
+  document.getElementById("got").textContent = cut2(n / r) + (row.currency ? " " + row.currency : "");
+}
+function line(label, value) {
+  var p = document.createElement("p");
+  var span = document.createElement("span");
+  span.textContent = label;
+  var b = document.createElement("b");
+  b.textContent = value == null || value === "" ? "—" : String(value);
+  p.appendChild(span);
+  p.appendChild(b);
+  return p;
+}
+function loadRows() {
+  api("/api/app/withdraws").then(function (res) {
+    var box = document.getElementById("rows");
+    box.innerHTML = "";
+    if (!res || res.code) {
+      var fail = document.createElement("p");
+      fail.className = "wd-empty";
+      fail.textContent = pageMsg((res && res.msg) || "加载失败");
+      box.appendChild(fail);
+      showPage("rows");
+      return;
+    }
+    var rows = res.data || [];
+    if (!rows.length) {
+      var empty = document.createElement("p");
+      empty.className = "wd-empty";
+      empty.textContent = pageLine("empty");
+      box.appendChild(empty);
+      showPage("rows");
+      return;
+    }
+    rows.forEach(function (row) {
+      var item = document.createElement("div");
+      item.className = "wd-item";
+      item.appendChild(line(pageLine("orderNo"), row.order_no || row.id));
+      item.appendChild(line(pageLine("submitAmt"), money(row.amount)));
+      if (wdOn("wd_got")) item.appendChild(line(pageLine("wdGot"), arriveText(row)));
+      item.appendChild(line(pageLine("holder"), row.holder_name));
+      item.appendChild(line(pageLine("card"), maskNo(row.card_no)));
+      item.appendChild(line(pageLine("note"), row.note));
+      item.appendChild(line(pageLine("status"), pageMsg(row.status_text)));
+      item.appendChild(line(pageLine("time"), row.created_at));
+      if (row.status === "rejected") item.appendChild(line(pageLine("reject"), row.audit_remark || ""));
+      box.appendChild(item);
+    });
+    showPage("rows");
+  });
+}
+var shownBal = null;
+api("/api/app/me").then(function (res) {
+  if (res && !res.code) {
+    var d = res.data || {};
+    document.getElementById("account").textContent = d.username || "—";
+    shownBal = d.available || "0";
+    document.getElementById("bal").textContent = window.money ? money(shownBal) : shownBal;
+    kycState = d.kyc_status || "none";
+    needReady();
+  }
+  showPage("me");
+});
+api("/api/app/card").then(function (res) {
+  var d = (!res || res.code) ? {} : (res.data || {});
+  cardBank = String(d.bank_name || "").trim();
+  cardNo = String(d.card_no || "").replace(/\s+/g, "");
+  document.getElementById("bank").textContent = cardBank || pageLine("unbound");
+  document.getElementById("cardno").textContent = cardNo ? maskNo(cardNo) : pageLine("unbound");
+  needReady();
+  showPage("card");
+});
+api("/api/app/channels?side=withdraw").then(function (res) {
+  channels = (!res || res.code) ? [] : (res.data || []);
+  var sel = document.getElementById("ch");
+  channels.forEach(function (row) {
+    var opt = document.createElement("option");
+    opt.value = String(row.id);
+    var cur = String(row.currency || "").trim();
+    var bank = String(row.bank_name || "").trim();
+    opt.textContent = (cur && bank && cur !== bank) ? (cur + " " + bank) : (bank || cur || pageLine("channel"));
+    sel.appendChild(opt);
+  });
+  if (channels.length) {
+    sel.value = String(channels[0].id);
+    sel.onchange = paintRate;
+  }
+  document.getElementById("amount").oninput = paintRate;
+  paintRate();
+  showPage("ch");
+});
+whenSite(function () {
+  paintKeys();
+  document.title = pageLine("wdTitle");
+  if (shownBal != null) document.getElementById("bal").textContent = money(shownBal);
+  document.getElementById("bank").textContent = cardBank || pageLine("unbound");
+  document.getElementById("cardno").textContent = cardNo ? maskNo(cardNo) : pageLine("unbound");
+  applyWd();
+  showPage("site");
+  loadRows();
+});
+document.getElementById("go").onclick = function () {
+  if (!needReady()) return;
+  var amount = document.getElementById("amount");
+  var msg = document.getElementById("msg");
+  var sel = document.getElementById("ch");
+  msg.className = "dep-msg";
+  if (wdOn("wd_channel") && channels.length && !sel.value) {
+    msg.textContent = pageLine("eChannel");
+    return;
+  }
+  if (wdOn("wd_amount") && !String(amount.value || "").trim()) {
+    msg.textContent = pageLine("eWdAmount");
+    return;
+  }
+  var pass = document.getElementById("pass").value;
+  var note = document.getElementById("note").value.trim();
+  if (wdOn("wd_pass") && !pass.trim()) {
+    msg.textContent = pageLine("eWdPass");
+    return;
+  }
+  if (wdOn("wd_note") && !note) {
+    msg.textContent = pageLine("eNote");
+    return;
+  }
+  var data = { amount: amount.value.trim(), trade_password: wdOn("wd_pass") ? pass : "", note: wdOn("wd_note") ? note : "" };
+  if (wdOn("wd_channel") && channels.length) data.channel_id = sel.value;
+  else if (data.amount) data.amount = toBase(data.amount);
+  api("/api/app/withdraw", data).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "提交失败");
+      return;
+    }
+    msg.className = "dep-msg ok";
+    msg.textContent = pageLine("wdSent");
+    amount.value = "";
+    document.getElementById("pass").value = "";
+    document.getElementById("note").value = "";
+    paintRate();
+    api("/api/app/me").then(function (me) {
+      if (me && !me.code) document.getElementById("bal").textContent = money((me.data || {}).available || "0");
+    });
+    loadRows();
+  });
+};
+</script>
+</body>
+</html>

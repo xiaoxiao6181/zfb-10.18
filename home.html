@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首页</title>
+<link rel="stylesheet" href="style.css?v=note1">
+</head>
+<body class="mhome wait">
+<main>
+<div class="mh-top" id="mh-name"></div>
+<div class="banner" id="banner" hidden></div>
+<div class="mh-note" id="mh-note" hidden><b id="mh-note-label">公告</b><p><span id="mh-note-text"></span></p></div>
+<div id="mh-groups"></div>
+<section class="mh-sec" id="mh-pick-sec" hidden>
+<h2 id="mh-pick-title">收益推荐</h2>
+<div class="mh-picks" id="mh-picks"></div>
+</section>
+</main>
+<nav class="mh-tab">
+<a class="on" href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script>
+requireLogin();
+function langCode() { return (window.LANG && window.LANG.code) || "zh-CN"; }
+function mark(text) {
+  var node = document.createElement("span");
+  node.className = "mh-ph";
+  node.textContent = String(text || "品").slice(0, 1);
+  return node;
+}
+function face(path, text) {
+  if (!path) return mark(text);
+  var img = document.createElement("img");
+  img.className = "mh-ico";
+  img.alt = "";
+  img.src = window.fileUrl(path);
+  return img;
+}
+whenSite(function () {
+  var left = 3;
+  function part() {
+    left -= 1;
+    if (left <= 0) document.body.classList.add("ready");
+  }
+  var d = window.SITE || {};
+  var name = d.site_name || "";
+  var lang = window.LANG || {};
+  if (lang.code !== "zh-CN" && lang.pack && lang.pack.site_name) name = lang.pack.site_name;
+  var top = document.getElementById("mh-name");
+  top.textContent = "";
+  var langBtn = document.createElement("a");
+  langBtn.className = "mh-lang";
+  langBtn.href = "lang.html";
+  if (lang.icon) {
+    var flag = document.createElement("img");
+    flag.alt = lang.name || "";
+    flag.src = window.fileUrl(lang.icon);
+    langBtn.appendChild(flag);
+  } else {
+    langBtn.textContent = lang.symbol || lang.name || "";
+  }
+  if (name) top.appendChild(document.createTextNode(name));
+  top.appendChild(langBtn);
+  document.title = name || t("nav_home");
+  document.getElementById("mh-note-label").textContent = t("notice");
+  document.getElementById("mh-pick-title").textContent = t("recommend");
+  var note = d.home_notice || "";
+  var langPack = (window.LANG && window.LANG.pack) || {};
+  if (langPack.home_notice) note = langPack.home_notice;
+  if (note) {
+    var noteBox = document.getElementById("mh-note");
+    var noteText = document.getElementById("mh-note-text");
+    noteBox.hidden = false;
+    noteText.textContent = note;
+    var track = noteText.parentElement;
+    var from = track.clientWidth;
+    var to = -noteText.offsetWidth;
+    var ms = Math.max(8000, (from - to) / 40 * 1000);
+    noteText.getAnimations().forEach(function (ani) { ani.cancel(); });
+    noteText.animate([
+      { transform: "translateX(" + from + "px)" },
+      { transform: "translateX(" + to + "px)" }
+    ], { duration: ms, iterations: Infinity, easing: "linear" });
+  }
+  api("/api/app/banners").then(function (res) {
+    var rows = (res && res.data) || [];
+    var box = document.getElementById("banner");
+    if (!rows.length) { part(); return; }
+    box.hidden = false;
+    var dots = document.createElement("div");
+    dots.className = "dots";
+    rows.forEach(function (row, i) {
+      var link = document.createElement(row.link_url ? "a" : "div");
+      if (row.link_url) { link.href = row.link_url; link.target = "_blank"; link.rel = "noopener"; }
+      var img = document.createElement("img");
+      img.src = window.fileUrl(row.image);
+      img.alt = "";
+      if (i === 0) img.className = "on";
+      link.appendChild(img);
+      box.appendChild(link);
+      var dot = document.createElement("button");
+      dot.type = "button";
+      if (i === 0) dot.className = "on";
+      dot.onclick = function () { show(i); };
+      dots.appendChild(dot);
+    });
+    box.appendChild(dots);
+    var index = 0;
+    function show(n) {
+      var imgs = box.querySelectorAll("img");
+      var buttons = dots.querySelectorAll("button");
+      index = n;
+      Array.prototype.forEach.call(imgs, function (img, i) { img.className = i === n ? "on" : ""; });
+      Array.prototype.forEach.call(buttons, function (btn, i) { btn.className = i === n ? "on" : ""; });
+    }
+    if (rows.length > 1) setInterval(function () { show((index + 1) % rows.length); }, 4000);
+    part();
+  });
+  api("/api/app/notices?lang=" + encodeURIComponent(langCode())).then(function (res) {
+    var rows = (res && res.data) || [];
+    if (!rows.length || sessionStorage.getItem("notice-seen") === "1") { part(); return; }
+    var i = 0;
+    function open() {
+      var old = document.getElementById("note-mask");
+      if (old) old.remove();
+      if (i >= rows.length) { sessionStorage.setItem("notice-seen", "1"); return; }
+      var row = rows[i];
+      var mask = document.createElement("div");
+      mask.id = "note-mask";
+      mask.className = "note-mask";
+      var box = document.createElement("div");
+      box.className = "note-box";
+      if (row.image) {
+        var img = document.createElement("img");
+        img.src = window.fileUrl(row.image);
+        img.alt = "";
+        box.appendChild(img);
+      }
+      if (row.title) {
+        var h = document.createElement("h2");
+        h.textContent = row.title;
+        box.appendChild(h);
+      }
+      if (row.body) {
+        var p = document.createElement("p");
+        p.textContent = row.body;
+        box.appendChild(p);
+      }
+      var actions = document.createElement("div");
+      actions.className = "note-actions";
+      var next = document.createElement("button");
+      next.type = "button";
+      next.textContent = i + 1 < rows.length ? t("next") : t("got");
+      next.onclick = function () { i += 1; open(); };
+      actions.appendChild(next);
+      box.appendChild(actions);
+      mask.appendChild(box);
+      document.body.appendChild(mask);
+    }
+    open();
+    part();
+  });
+  api("/api/app/products").then(function (res) {
+    var rows = ((res && res.data) || []).slice().sort(function (a, b) { return Number(a.id) - Number(b.id); });
+    var groups = [];
+    var map = {};
+    rows.forEach(function (row) {
+      var key = String(row.category_id || 0);
+      if (!map[key]) {
+        map[key] = {
+          id: key,
+          name: window.langName("category", row.category_id, row.category_name || t("other")),
+          items: []
+        };
+        groups.push(map[key]);
+      }
+      map[key].items.push(row);
+    });
+    var box = document.getElementById("mh-groups");
+    if (!groups.length) {
+      var empty = document.createElement("p");
+      empty.className = "mh-empty";
+      empty.textContent = t("empty_product");
+      box.appendChild(empty);
+    }
+    groups.forEach(function (g) {
+      var sec = document.createElement("section");
+      sec.className = "mh-sec";
+      sec.id = "cat-" + g.id;
+      var h = document.createElement("h2");
+      h.textContent = g.name;
+      sec.appendChild(h);
+      var grid = document.createElement("div");
+      grid.className = "mh-grid";
+      g.items.forEach(function (row) {
+        var title = window.langName("product", row.id, row.name);
+        var a = document.createElement("a");
+        a.className = "mh-item";
+        a.href = "product.html?id=" + encodeURIComponent(row.id);
+        a.appendChild(face(row.logo, title));
+        var t = document.createElement("span");
+        t.textContent = title;
+        a.appendChild(t);
+        grid.appendChild(a);
+      });
+      sec.appendChild(grid);
+      box.appendChild(sec);
+    });
+    var picks = rows.filter(function (row) { return Number(row.recommend) === 1; });
+    if (!picks.length) { part(); return; }
+    document.getElementById("mh-pick-sec").hidden = false;
+    var pickBox = document.getElementById("mh-picks");
+    picks.forEach(function (row) {
+      var a = document.createElement("a");
+      a.className = "mh-pick";
+      a.href = "product.html?id=" + encodeURIComponent(row.id);
+      var b = document.createElement("b");
+      b.textContent = window.langName("product", row.id, row.name);
+      var em = document.createElement("em");
+      em.textContent = (row.rate_text || "0") + "%";
+      var s1 = document.createElement("small");
+      s1.textContent = termText(row);
+      var s2 = document.createElement("small");
+      s2.textContent = t("can_yield");
+      a.appendChild(b);
+      a.appendChild(em);
+      a.appendChild(s1);
+      a.appendChild(s2);
+      pickBox.appendChild(a);
+    });
+    part();
+  });
+});
+</script>
+</body>
+</html>

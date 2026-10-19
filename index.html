@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<script>
+(function () {
+  if (!/[?&]tab=reg(?:&|$)/.test(location.search)) return;
+  document.documentElement.classList.add("reg-on");
+})();
+</script>
+<link rel="stylesheet" href="style.css?v=regui15">
+</head>
+<body class="gate wait">
+<main>
+<div class="gate-card">
+<div class="login-bar" id="login-bar"><strong>登录</strong><select id="login-lang" data-compact="1" aria-label="语言"></select></div>
+<div class="login-brand" id="login-brand"><img id="login-logo" alt="" hidden></div>
+<div class="reg-head"><img id="reg-logo" alt="" hidden><strong id="reg-brand">蚂蚁财富</strong></div>
+<p class="mark">会员理财</p>
+<h1>登录</h1>
+<p class="sub">按等级购买，到期赎回</p>
+<form id="login" novalidate>
+<input name="username" required maxlength="64" placeholder="请输入使用者名称、手机号或邮箱" autocomplete="username">
+<input name="password" type="password" required placeholder="请输入密码" autocomplete="current-password">
+<!--
+<div class="reg-row" id="login-cap">
+<input id="login-cap-code" name="captcha_code" required maxlength="4" placeholder="验证码" autocomplete="off">
+<img id="login-cap-img" alt="验证码">
+<input type="hidden" name="captcha_id" id="login-cap-id">
+</div>
+-->
+<button type="submit">提交</button>
+</form>
+<div class="split" hidden></div>
+<h2 hidden>开户</h2>
+<form id="reg" novalidate>
+<div class="reg-ways" id="reg-ways" hidden>
+<button type="button" id="way-phone" data-way="phone">手机注册</button>
+<button type="button" id="way-email" data-way="email">邮箱注册</button>
+</div>
+<input type="hidden" name="way" id="reg-way" value="phone">
+<div class="reg-block" id="user-block">
+<label for="reg-user">使用者名称</label>
+<input id="reg-user" name="username" required maxlength="20" pattern="[A-Za-z0-9_]{4,20}" placeholder="请输入使用者名称，4到20位字母或数字" autocomplete="username">
+</div>
+<div class="reg-block" id="area-block" hidden>
+<label id="lab-area" for="reg-phone-input">区号</label>
+<div class="reg-row" id="area-row">
+<select id="reg-area"></select>
+<input id="reg-area-input" maxlength="8" placeholder="区号" hidden>
+<input id="reg-phone-input" name="phone" inputmode="numeric" maxlength="15" pattern="[0-9]{4,15}" placeholder="请输入手机号" autocomplete="tel">
+</div>
+</div>
+<div class="reg-block" id="email-block" hidden>
+<label id="lab-email" for="reg-email">邮箱</label>
+<input id="reg-email" name="email" type="email" maxlength="64" placeholder="请输入邮箱" autocomplete="email">
+</div>
+<div class="reg-block" id="name-block" hidden>
+<label id="lab-name" for="reg-name">真实姓名</label>
+<input id="reg-name" name="real_name" maxlength="32" placeholder="请输入真实姓名">
+</div>
+<div class="reg-block">
+<label for="reg-pass">登入密码</label>
+<input id="reg-pass" name="password" type="password" required minlength="6" maxlength="32" placeholder="请输入登入密码，6到32位" autocomplete="new-password">
+</div>
+<div class="reg-block">
+<label for="reg-trade">交易密码</label>
+<input id="reg-trade" name="trade_password" type="password" required minlength="6" maxlength="32" placeholder="请输入交易密码，6到32位" autocomplete="new-password">
+</div>
+<div class="reg-block">
+<label for="reg-trade2">确认交易密码</label>
+<input id="reg-trade2" name="trade_password2" type="password" required minlength="6" maxlength="32" placeholder="请再次输入交易密码" autocomplete="new-password">
+</div>
+<div class="reg-block" id="code-block" hidden>
+<label id="lab-code" for="reg-code">注册码</label>
+<input id="reg-code" name="reg_code" maxlength="32" placeholder="请输入注册码">
+</div>
+<div class="reg-block" id="cap-block" hidden>
+<label id="lab-cap" for="cap-code">验证码</label>
+<div class="reg-row" id="cap-row">
+<input id="cap-code" name="captcha_code" maxlength="4" placeholder="请输入验证码">
+<img id="cap-img" alt="验证码">
+<input type="hidden" name="captcha_id" id="cap-id">
+</div>
+</div>
+<button type="submit">注册</button>
+</form>
+<script>
+(function () {
+  if (!document.documentElement.classList.contains("reg-on")) return;
+  var flags = "", ways = "", way = "", logo = "";
+  try {
+    flags = sessionStorage.getItem("reg-flags") || "";
+    ways = sessionStorage.getItem("reg-ways") || "";
+    way = sessionStorage.getItem("reg-way") || "";
+    logo = sessionStorage.getItem("reg-logo") || "";
+  } catch (e) {}
+  function show(id) {
+    var el = document.getElementById(id);
+    if (el) el.hidden = false;
+  }
+  if (!way) way = ways.indexOf("phone") >= 0 ? "phone" : (ways.indexOf("email") >= 0 ? "email" : "");
+  if (ways.indexOf("phone") >= 0 && ways.indexOf("email") >= 0) show("reg-ways");
+  if (way === "phone" && flags.indexOf("M") >= 0) show("area-block");
+  if (way === "email") show("email-block");
+  if (flags.indexOf("n") >= 0) show("name-block");
+  if (flags.indexOf("c") >= 0) show("code-block");
+  if (flags.indexOf("a") >= 0) show("cap-block");
+  var areaPick = document.getElementById("reg-area");
+  var areaText = document.getElementById("reg-area-input");
+  if (areaPick && areaText) {
+    var useList = flags.indexOf("r") >= 0;
+    areaPick.hidden = !useList;
+    areaText.hidden = useList;
+  }
+  var phoneBtn = document.getElementById("way-phone");
+  var emailBtn = document.getElementById("way-email");
+  if (phoneBtn) phoneBtn.classList.toggle("on", way === "phone");
+  if (emailBtn) emailBtn.classList.toggle("on", way === "email");
+  var picked = document.getElementById("reg-way");
+  if (picked && way) picked.value = way;
+  if (logo) {
+    var img = document.getElementById("reg-logo");
+    img.src = logo;
+    img.hidden = false;
+  }
+})();
+</script>
+<p class="msg" id="reg-closed" hidden>暂未开放注册</p>
+<p class="msg" id="msg"></p>
+<p class="gate-switch" id="gate-switch"><a href="index.html?stay=1&tab=login">已有账号，去登录</a></p>
+<img class="reg-brands" id="reg-brands" data-file="/uploads/land/brands.png" alt="">
+</div>
+</main>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="gate-text.js?v=2"></script>
+<script>
+var SERVER_MSG = {
+  "验证码不正确": "eCapBad",
+  "账号或密码错误": "eLogin",
+  "账号已禁用": "eOff",
+  "网络异常": "eNet",
+  "请求失败": "eNet",
+  "暂未开放注册": "closed",
+  "使用者名称为4到20位字母或数字": "vUserBad",
+  "登入密码为6到32位": "vPassBad",
+  "交易密码为6到32位": "vTradeBad",
+  "两次交易密码不一致": "mismatch",
+  "账号已存在": "eExists",
+  "请填写真实姓名": "vName",
+  "姓名已被使用": "eNameUsed",
+  "未开放手机注册": "ePhoneOff",
+  "未开放邮箱注册": "eEmailOff",
+  "请选择区号": "vAreaPick",
+  "请填写区号": "vAreaEmpty",
+  "请输入手机号": "vPhoneBad",
+  "手机号过长": "ePhoneLong",
+  "手机号已注册": "ePhoneUsed",
+  "请填写邮箱": "vEmailBad",
+  "邮箱已注册": "eEmailUsed",
+  "请填写注册码": "vCode",
+  "注册码不正确": "eCodeBad",
+  "该IP注册数量已达上限": "eIpMax",
+  "验证码生成失败": "eCapFail"
+};
+var STATUS_MSG = { "审核中": "stPending", "正常": "stNormal", "已拒绝": "stRejected", "已禁用": "stDisabled" };
+function clearMsg() {
+  var node = document.getElementById("msg");
+  if (node) node.textContent = "";
+}
+function say(key) {
+  showMsg("msg", { msg: window.gateLine(key) });
+}
+function markField(el) {
+  Array.prototype.forEach.call(document.querySelectorAll("#login .bad, #reg .bad"), function (node) {
+    node.classList.remove("bad");
+  });
+  if (!el) return;
+  var row = el.closest ? el.closest(".reg-row") : null;
+  if (row) row.classList.add("bad");
+  else el.classList.add("bad");
+  if (el.focus) el.focus();
+}
+function showServer(res) {
+  var raw = (res && res.msg) || "";
+  var key = SERVER_MSG[raw];
+  showMsg("msg", { msg: key ? window.gateLine(key) : (raw || window.gateLine("eNet")) });
+}
+document.getElementById("login").addEventListener("input", function () { markField(null); clearMsg(); });
+document.getElementById("reg").addEventListener("input", function () { markField(null); clearMsg(); });
+document.getElementById("login").onsubmit = function (e) {
+  e.preventDefault();
+  var user = this.elements.username;
+  var pass = this.elements.password;
+  // var cap = document.getElementById("login-cap-code");
+  if (!user.value.trim()) { markField(user); return say("eUser"); }
+  if (!pass.value) { markField(pass); return say("ePass"); }
+  // if (!cap.value.trim()) { markField(cap); return say("eCap"); }
+  // if (cap.value.trim().length !== 4) { markField(cap); return say("eCapLen"); }
+  markField(null);
+  clearMsg();
+  api("/api/app/login", readForm(this)).then(function (res) {
+    if (res.code) {
+      showServer(res);
+      // loadLoginCaptcha();
+      // if (res.msg === "验证码不正确" || res.msg === "验证码生成失败") markField(document.getElementById("login-cap-code"));
+      if (res.msg === "账号或密码错误") markField(pass);
+      return;
+    }
+    setToken(res.data.token);
+    sessionStorage.removeItem("notice-seen");
+    location.href = "home.html";
+  });
+};
+function loadLoginCaptcha() {
+  api("/api/app/captcha").then(function (res) {
+    var img = document.getElementById("login-cap-img");
+    var idEl = document.getElementById("login-cap-id");
+    if (!img || !idEl || !res || res.code || !res.data || !res.data.image) return;
+    idEl.value = res.data.id || "";
+    img.src = res.data.image;
+    var code = document.getElementById("login-cap-code");
+    if (code) code.value = "";
+  });
+}
+// document.getElementById("login-cap-img").onclick = loadLoginCaptcha;
+function regProblem() {
+  var user = document.getElementById("reg-user");
+  if (!user.value.trim()) return [user, "vUserEmpty"];
+  if (!/^[A-Za-z0-9_]{4,20}$/.test(user.value.trim())) return [user, "vUserBad"];
+  var pass = document.getElementById("reg-pass");
+  if (!pass.value) return [pass, "vPassEmpty"];
+  if (pass.value.length < 6 || pass.value.length > 32) return [pass, "vPassBad"];
+  var trade = document.getElementById("reg-trade");
+  if (!trade.value) return [trade, "vTradeEmpty"];
+  if (trade.value.length < 6 || trade.value.length > 32) return [trade, "vTradeBad"];
+  var trade2 = document.getElementById("reg-trade2");
+  if (!trade2.value) return [trade2, "vTrade2"];
+  if (trade.value !== trade2.value) return [trade2, "mismatch"];
+  if (!document.getElementById("area-block").hidden) {
+    var areaPick = document.getElementById("reg-area");
+    var areaText = document.getElementById("reg-area-input");
+    var phone = document.getElementById("reg-phone-input");
+    if (!areaPick.hidden && !areaPick.value) return [areaPick, "vAreaPick"];
+    if (!areaText.hidden && !areaText.value.trim()) return [areaText, "vAreaEmpty"];
+    if (!areaText.hidden && !/^\+?\d{1,6}$/.test(areaText.value.trim())) return [areaText, "vAreaBad"];
+    if (!phone.value.trim()) return [phone, "vPhoneEmpty"];
+    if (!/^\d{4,15}$/.test(phone.value.trim())) return [phone, "vPhoneBad"];
+  }
+  if (!document.getElementById("email-block").hidden) {
+    var email = document.getElementById("reg-email");
+    if (!email.value.trim()) return [email, "vEmailEmpty"];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) return [email, "vEmailBad"];
+  }
+  if (!document.getElementById("name-block").hidden) {
+    var name = document.getElementById("reg-name");
+    if (!name.value.trim()) return [name, "vName"];
+  }
+  if (!document.getElementById("code-block").hidden) {
+    var code = document.getElementById("reg-code");
+    if (!code.value.trim()) return [code, "vCode"];
+  }
+  if (!document.getElementById("cap-block").hidden) {
+    var cap = document.getElementById("cap-code");
+    if (!cap.value.trim()) return [cap, "eCap"];
+    if (cap.value.trim().length !== 4) return [cap, "eCapLen"];
+  }
+  return null;
+}
+document.getElementById("reg").onsubmit = function (e) {
+  e.preventDefault();
+  var problem = regProblem();
+  if (problem) {
+    markField(problem[0]);
+    return say(problem[1]);
+  }
+  markField(null);
+  clearMsg();
+  var body = readForm(this);
+  if (document.getElementById("area-block").hidden) {
+    body.area = "";
+    body.phone = "";
+  }
+  if (document.getElementById("email-block").hidden) body.email = "";
+  api("/api/app/register", body).then(function (res) {
+    if (res.code) {
+      showServer(res);
+      if (document.getElementById("cap-block") && !document.getElementById("cap-block").hidden) loadCaptcha();
+      return;
+    }
+    var statusKey = STATUS_MSG[(res.data && res.data.status_text) || ""];
+    var statusText = statusKey ? window.gateLine(statusKey) : ((res.data && res.data.status_text) || "");
+    showMsg("msg", { msg: window.gateLine("regOk") + statusText });
+  });
+};
+var capLoading = false;
+var regState = { phone: false, email: false, mobile: false, way: "phone" };
+function block(id, on) {
+  var el = document.getElementById(id);
+  if (el) el.hidden = !on;
+}
+function applyWay(way) {
+  if (way === "phone" && !regState.phone) way = regState.email ? "email" : "phone";
+  if (way === "email" && !regState.email) way = regState.phone ? "phone" : "email";
+  regState.way = way;
+  document.getElementById("reg-way").value = way;
+  var showArea = way === "phone" && regState.mobile;
+  var showEmail = way === "email";
+  block("area-block", showArea);
+  block("email-block", showEmail);
+  var areaPick = document.getElementById("reg-area");
+  var areaText = document.getElementById("reg-area-input");
+  var emailInput = document.getElementById("reg-email");
+  var phoneInput = document.getElementById("reg-phone-input");
+  areaPick.required = showArea && !areaPick.hidden;
+  areaText.required = showArea && !areaText.hidden;
+  phoneInput.required = showArea;
+  if (!showArea) {
+    areaPick.value = "";
+    areaText.value = "";
+    phoneInput.value = "";
+  }
+  emailInput.required = showEmail;
+  if (!showEmail) emailInput.value = "";
+  document.getElementById("way-phone").classList.toggle("on", way === "phone");
+  document.getElementById("way-email").classList.toggle("on", way === "email");
+  document.getElementById("way-phone").hidden = !regState.phone;
+  document.getElementById("way-email").hidden = !regState.email;
+  document.getElementById("reg-ways").hidden = !(regState.phone && regState.email);
+  try { sessionStorage.setItem("reg-way", way); } catch (err) {}
+}
+function ask(id, emptyMsg, badMsg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("invalid", function () {
+    if (this.validity.valueMissing) this.setCustomValidity(window.gateLine(emptyMsg));
+    else if (badMsg && (this.validity.patternMismatch || this.validity.typeMismatch || this.validity.tooShort)) this.setCustomValidity(window.gateLine(badMsg));
+    else this.setCustomValidity("");
+  });
+  el.addEventListener("input", function () { this.setCustomValidity(""); });
+}
+ask("reg-user", "vUserEmpty", "vUserBad");
+ask("reg-area", "vAreaPick", "");
+ask("reg-area-input", "vAreaEmpty", "vAreaBad");
+ask("reg-phone-input", "vPhoneEmpty", "vPhoneBad");
+ask("reg-email", "vEmailEmpty", "vEmailBad");
+ask("reg-name", "vName", "");
+ask("reg-pass", "vPassEmpty", "vPassBad");
+ask("reg-trade", "vTradeEmpty", "vTradeBad");
+ask("reg-trade2", "vTrade2", "");
+ask("reg-code", "vCode", "");
+ask("cap-code", "vCap", "");
+document.getElementById("way-phone").onclick = function () { applyWay("phone"); };
+document.getElementById("way-email").onclick = function () { applyWay("email"); };
+function loadCaptcha() {
+  if (capLoading) return;
+  capLoading = true;
+  api("/api/app/captcha").then(function (res) {
+    capLoading = false;
+    if (!res || res.code) return;
+    document.getElementById("cap-id").value = res.data.id || "";
+    document.getElementById("cap-img").src = res.data.image || "";
+  }, function () { capLoading = false; });
+}
+function paintReg(d) {
+  d = d || {};
+  var open = d.register_open !== "0";
+  regState.phone = d.reg_phone === "1";
+  regState.email = d.reg_email === "1";
+  regState.mobile = d.reg_mobile === "1";
+  if (open && !regState.phone && !regState.email) open = false;
+  document.getElementById("reg").hidden = !open;
+  document.getElementById("reg-closed").hidden = open;
+  var areas = String(d.reg_areas || "").split(",").filter(Boolean);
+  var area = document.getElementById("reg-area");
+  var areaText = document.getElementById("reg-area-input");
+  var useList = areas.length > 0;
+  area.innerHTML = "";
+  areas.forEach(function (item) {
+    var op = document.createElement("option");
+    op.value = item;
+    op.textContent = item;
+    area.appendChild(op);
+  });
+  area.hidden = !useList;
+  areaText.hidden = useList;
+  if (useList) {
+    area.name = "area";
+    areaText.removeAttribute("name");
+  } else {
+    area.removeAttribute("name");
+    areaText.name = "area";
+  }
+  block("name-block", d.reg_name === "1");
+  document.getElementById("reg-name").required = d.reg_name === "1";
+  block("code-block", d.reg_code === "1");
+  document.getElementById("reg-code").required = d.reg_code === "1";
+  var cap = d.reg_captcha === "1";
+  block("cap-block", cap);
+  document.getElementById("cap-code").required = cap;
+  if (cap) loadCaptcha();
+  var way = "";
+  try { way = sessionStorage.getItem("reg-way") || ""; } catch (err) {}
+  if (way !== "phone" && way !== "email") way = regState.phone ? "phone" : "email";
+  applyWay(way);
+  var brand = document.getElementById("reg-brand");
+  var brandName = d.site_name || "";
+  var lang = window.LANG || {};
+  if (lang.code !== "zh-CN" && lang.pack && lang.pack.site_name) brandName = lang.pack.site_name;
+  if (brand) brand.textContent = brandName || "蚂蚁财富";
+  var logo = document.getElementById("reg-logo");
+  var path = d.logo_front || "/uploads/land/logo.png";
+  if (logo && window.fileUrl) {
+    logo.src = window.fileUrl(path);
+    logo.hidden = !logo.src;
+  }
+  try {
+    var flags = (d.reg_name === "1" ? "n" : "") + (d.reg_code === "1" ? "c" : "") + (cap ? "a" : "") + (useList ? "r" : "") + (regState.mobile ? "M" : "");
+    sessionStorage.setItem("reg-flags", flags);
+    sessionStorage.setItem("reg-ways", (regState.phone ? "phone" : "") + (regState.email ? ",email" : ""));
+    sessionStorage.setItem("reg-way", regState.way);
+    if (logo && logo.src) sessionStorage.setItem("reg-logo", logo.src);
+  } catch (err) {}
+}
+document.getElementById("cap-img").onclick = loadCaptcha;
+function paintLoginBrand(d) {
+  d = d || {};
+  var logo = document.getElementById("login-logo");
+  var path = d.logo_front || "";
+  if (!logo) return;
+  var src = path && window.fileUrl ? window.fileUrl(path) : "";
+  if (src) {
+    logo.src = src;
+    logo.hidden = false;
+  } else {
+    logo.removeAttribute("src");
+    logo.hidden = true;
+  }
+  var sel = document.getElementById("login-lang");
+  if (!sel || sel.getAttribute("data-ready") === "1") return;
+  var lang = window.LANG || {};
+  var rows = (d.langs && d.langs.length) ? d.langs : [{ code: "zh-CN", name: "简体中文" }];
+  sel.innerHTML = "";
+  rows.forEach(function (row) {
+    var op = document.createElement("option");
+    op.value = row.code;
+    op.textContent = row.name || row.code;
+    if (row.icon) op.setAttribute("data-icon", row.icon);
+    if (lang.code === row.code) op.selected = true;
+    sel.appendChild(op);
+  });
+  sel.setAttribute("data-ready", "1");
+  sel.onchange = function () {
+    localStorage.setItem("member-lang", sel.value);
+    localStorage.setItem("member-lang-picked", "1");
+    location.reload();
+  };
+}
+function paintGateCopy(isReg) {
+  function text(id, key) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = window.gateLine(key);
+  }
+  function hold(sel, key) {
+    var el = document.querySelector(sel);
+    if (el) el.placeholder = window.gateLine(key);
+  }
+  var bar = document.querySelector("#login-bar strong");
+  if (bar) bar.textContent = window.gateLine("bar");
+  hold('#login input[name="username"]', "user");
+  hold('#login input[name="password"]', "pass");
+  hold("#login-cap-code", "cap");
+  var capImg = document.getElementById("login-cap-img");
+  if (capImg) capImg.alt = window.gateLine("cap");
+  var submit = document.querySelector("#login button");
+  if (submit) submit.textContent = window.gateLine("submit");
+  text("way-phone", "phoneWay");
+  text("way-email", "emailWay");
+  var userLab = document.querySelector('label[for="reg-user"]');
+  if (userLab) userLab.textContent = window.gateLine("userLab");
+  var passLab = document.querySelector('label[for="reg-pass"]');
+  if (passLab) passLab.textContent = window.gateLine("passLab");
+  var tradeLab = document.querySelector('label[for="reg-trade"]');
+  if (tradeLab) tradeLab.textContent = window.gateLine("tradeLab");
+  var trade2Lab = document.querySelector('label[for="reg-trade2"]');
+  if (trade2Lab) trade2Lab.textContent = window.gateLine("trade2Lab");
+  text("lab-area", "areaLab");
+  text("lab-email", "emailLab");
+  text("lab-name", "nameLab");
+  text("lab-code", "codeLab");
+  text("lab-cap", "capLab");
+  hold("#reg-user", "userPh");
+  hold("#reg-area-input", "areaPh");
+  hold("#reg-phone-input", "phonePh");
+  hold("#reg-email", "emailPh");
+  hold("#reg-name", "namePh");
+  hold("#reg-pass", "passPh");
+  hold("#reg-trade", "tradePh");
+  hold("#reg-trade2", "trade2Ph");
+  hold("#reg-code", "codePh");
+  hold("#cap-code", "capPh");
+  var capAlt = document.getElementById("cap-img");
+  if (capAlt) capAlt.alt = window.gateLine("cap");
+  var regBtn = document.querySelector("#reg button[type='submit']");
+  if (regBtn) regBtn.textContent = window.gateLine("reg");
+  var closed = document.getElementById("reg-closed");
+  if (closed) closed.textContent = window.gateLine("closed");
+  document.title = window.gateLine(isReg ? "titleUp" : "titleIn");
+}
+function paintGate(mode, d) {
+  var isReg = mode === "reg";
+  document.getElementById("login").hidden = isReg;
+  var split = document.querySelector(".gate-card .split");
+  var heading = document.querySelector(".gate-card h2");
+  if (split) split.hidden = true;
+  if (heading) heading.hidden = true;
+  var title = document.querySelector(".gate-card h1");
+  if (title) title.textContent = window.gateLine(isReg ? "reg" : "bar");
+  var sub = document.querySelector(".gate-card .sub");
+  if (sub) sub.hidden = isReg;
+  paintGateCopy(isReg);
+  var link = document.getElementById("gate-switch");
+  if (!link) {
+    link = document.createElement("p");
+    link.id = "gate-switch";
+    link.className = "gate-switch";
+    document.querySelector(".gate-card").appendChild(link);
+  }
+  var wantHref = isReg ? "index.html?stay=1&tab=login" : "index.html?stay=1&tab=reg";
+  var wantText = window.gateLine(isReg ? "toLogin" : "toReg");
+  var a = link.querySelector("a");
+  if (!a) {
+    a = document.createElement("a");
+    link.appendChild(a);
+  }
+  if (a.getAttribute("href") !== wantHref) a.setAttribute("href", wantHref);
+  if (a.textContent !== wantText) a.textContent = wantText;
+  link.style.display = "block";
+  paintLoginBrand(d);
+  if (isReg) paintReg(d);
+  else {
+    document.getElementById("reg").hidden = true;
+    document.getElementById("reg-closed").hidden = true;
+    // loadLoginCaptcha();
+  }
+  var brands = document.getElementById("reg-brands");
+  if (brands && link.parentNode) link.parentNode.appendChild(brands);
+}
+window.onSite = function (d) {
+  window.SITE = d;
+  var entry = d.front_entry || "login";
+  var q = new URLSearchParams(location.search);
+  var tab = q.get("tab");
+  var stay = q.get("stay") === "1";
+  if (!stay && !tab) {
+    if (entry === "home") { window.gateLeave = true; location.replace("home.html"); return; }
+    if (entry === "land") { window.gateLeave = true; location.replace("land.html"); return; }
+  }
+  var mode = tab === "reg" || (!tab && !stay && entry === "reg") ? "reg" : "login";
+  document.documentElement.classList.toggle("reg-on", mode === "reg");
+  document.body.classList.toggle("reg-on", mode === "reg");
+  paintGate(mode, d);
+  document.body.classList.add("ready");
+};
+if (window.SITE) window.onSite(window.SITE);
+whenSite(function () {
+  if (window.gateLeave) return;
+  document.body.classList.add("ready");
+  if (document.documentElement.classList.contains("reg-on")) return;
+  // loadLoginCaptcha();
+  // setTimeout(function () {
+  //   var img = document.getElementById("login-cap-img");
+  //   if (img && !img.getAttribute("src")) loadLoginCaptcha();
+  // }, 400);
+});
+</script>
+</body>
+</html>
+

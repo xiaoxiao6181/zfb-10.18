@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>产品</title>
+<link rel="stylesheet" href="style.css?v=yb3">
+</head>
+<body class="pf yb wait">
+<main>
+<div class="yb-top">
+<a class="pf-back" id="back" href="home.html" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></a>
+<div class="yb-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path fill="#f6b423" d="M24 5 41 18.2 24 43 7 18.2z"/><path fill="#ffe7a3" d="M24 5 41 18.2 24 20.5z"/><path fill="#fff" opacity=".72" d="M17.2 18.2 24 8.2 30.8 18.2z"/></svg></div>
+<strong id="title"></strong>
+<p class="yb-safe"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6l-7-3z"/></svg><span>资金安全保障中</span><i>›</i></p>
+</div>
+<section class="yb-card">
+<h1 id="headline"></h1>
+<a class="yb-link" id="lab-income" href="income.html">资金明细</a>
+<div class="yb-split">
+<div>
+<span id="lab-rate">当日固定化收益率</span>
+<b id="rate">—</b>
+<em id="rate-tag" hidden></em>
+</div>
+<div>
+<span id="lab-gain">累计收益</span>
+<b id="gain">0.00</b>
+<em>有待确认收益</em>
+</div>
+</div>
+<div class="yb-acts">
+<button class="yb-out" id="open-out" type="button"></button>
+<button class="yb-in" id="open-in" type="button"></button>
+</div>
+</section>
+<p class="pf-intro" id="intro" hidden></p>
+<p class="pf-note" id="msg"></p>
+</main>
+<div class="pf-mask" id="in-mask" hidden>
+<div class="pf-sheet">
+<p id="lab-in">转入金额</p>
+<p class="yb-limit" id="limit"><span id="lab-min">最低转入金额</span><b id="min-amt">—</b><span id="lab-max">最高转入金额</span><b id="max-amt">—</b></p>
+<input id="amount" name="buy_amount" inputmode="decimal" autocomplete="off" placeholder="请输入转入金额">
+<div class="pf-choose">
+<button class="pf-cancel" id="in-no" type="button"></button>
+<button class="pf-in" id="in-go" type="button"></button>
+</div>
+<p class="pf-msg" id="in-msg"></p>
+</div>
+</div>
+<div class="pf-mask" id="out-mask" hidden>
+<div class="pf-sheet">
+<p id="out-ask"></p>
+<div class="pf-choose">
+<button class="pf-cancel" id="out-no" type="button"></button>
+<button class="pf-in" id="out-go" type="button"></button>
+</div>
+<p class="pf-msg" id="out-msg"></p>
+</div>
+</div>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+var id = new URLSearchParams(location.search).get("id") || "";
+var product = null;
+var bag = [];
+var wallet = "0";
+var seen = { site: false, product: false, hold: false, me: false };
+function showPage(part) {
+  seen[part] = true;
+  if (seen.site && seen.product && seen.hold && seen.me) document.body.classList.add("ready");
+}
+function plain(amount) {
+  var n = Number(amount);
+  if (!isFinite(n)) n = 0;
+  var rate = Number(window.LANG && window.LANG.rate);
+  if (!isFinite(rate) || rate <= 0) rate = 1;
+  return (Math.round(n * rate * 100) / 100).toFixed(2);
+}
+function add(a, b) {
+  return ((Math.round(Number(a) * 100) || 0) + (Math.round(Number(b) * 100) || 0)) / 100;
+}
+function accrued(row) {
+  return Number(row.expected_profit) || 0;
+}
+function canOut(row) {
+  return row.status === "holding" && (Number(row.matured) === 1 || Number(row.allow_early) === 1);
+}
+function applyWords() {
+  document.getElementById("lab-income").textContent = "资金明细";
+  document.getElementById("lab-rate").textContent = "当日固定化收益率";
+  document.getElementById("lab-gain").textContent = "累计收益";
+  document.getElementById("lab-min").textContent = t("min_in");
+  document.getElementById("lab-max").textContent = t("max_in");
+  document.getElementById("open-in").textContent = t("transfer_in");
+  document.getElementById("open-out").textContent = t("transfer_out");
+  document.getElementById("lab-in").textContent = t("in_amt");
+  document.getElementById("in-no").textContent = t("cancel");
+  document.getElementById("in-go").textContent = t("ok");
+  document.getElementById("out-ask").textContent = t("out_ask");
+  document.getElementById("out-no").textContent = t("cancel");
+  document.getElementById("out-go").textContent = t("ok");
+  document.getElementById("amount").placeholder = t("enter_amt");
+}
+function rateLabel(row) {
+  var raw = String((row && (row.rate_text || row.rate)) || "").replace(/%/g, "").trim();
+  return raw ? raw + "%" : "—";
+}
+function maxLabel(value) {
+  var n = Number(String(value == null ? "" : value).replace(/,/g, ""));
+  if (!value || !(n > 0) || n >= 99999999) return "不限制";
+  return money(value);
+}
+function paint() {
+  if (!product) return;
+  applyWords();
+  var name = langName("product", product.id, product.name);
+  document.title = name;
+  document.getElementById("title").textContent = name;
+  document.getElementById("headline").textContent = "员工以及员工亲属年度福利";
+  document.getElementById("rate").textContent = rateLabel(product);
+  document.getElementById("min-amt").textContent = money(product.min_amount);
+  document.getElementById("max-amt").textContent = maxLabel(product.max_amount);
+  var tag = document.getElementById("rate-tag");
+  var term = product.term_text || "";
+  tag.hidden = !term;
+  tag.textContent = term;
+  var gain = 0;
+  bag.forEach(function (row) {
+    if (String(row.product_id) !== String(id)) return;
+    if (row.status !== "holding" && row.status !== "redeem_pending") return;
+    gain = add(gain, accrued(row));
+  });
+  document.getElementById("gain").textContent = money(gain).replace(/^(-?)([^\d.\-]+)/, "$1$2 ");
+  var box = document.getElementById("intro");
+  box.hidden = true;
+}
+document.getElementById("back").onclick = function (event) {
+  if (history.length > 1) {
+    event.preventDefault();
+    history.back();
+  }
+};
+document.getElementById("open-in").onclick = function () {
+  document.getElementById("in-msg").textContent = "";
+  document.getElementById("in-mask").hidden = false;
+};
+document.getElementById("in-mask").onclick = function (event) {
+  if (event.target === this) this.hidden = true;
+};
+document.getElementById("in-no").onclick = function () {
+  document.getElementById("in-mask").hidden = true;
+};
+document.getElementById("in-go").onclick = function () {
+  var msg = document.getElementById("in-msg");
+  msg.className = "pf-msg";
+  if (!product) return;
+  if (Number(product.can_buy) === 0) { msg.textContent = pageLine("eCantBuy"); return; }
+  if (Number(product.level_allowed) === 0) { msg.textContent = pageLine("eLevel"); return; }
+  if (Number(product.open_now) === 0) { msg.textContent = pageLine("eClosed"); return; }
+  var raw = document.getElementById("amount").value.trim();
+  if (!raw) { msg.textContent = t("enter_amt"); return; }
+  var idem = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  api("/api/app/purchase", { product_id: id, amount: toBase(raw) }, { idem: idem }).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "转入失败");
+      return;
+    }
+    location.href = "logs.html?tab=hold";
+  });
+};
+function redeemable() {
+  var rows = [];
+  bag.forEach(function (row) {
+    if (String(row.product_id) === String(id) && canOut(row)) rows.push(row);
+  });
+  return rows;
+}
+document.getElementById("open-out").onclick = function () {
+  var msg = document.getElementById("out-msg");
+  msg.className = "pf-msg";
+  msg.textContent = "";
+  if (!redeemable().length) {
+    document.getElementById("msg").textContent = pageLine("eNoOut");
+    return;
+  }
+  document.getElementById("out-mask").hidden = false;
+};
+document.getElementById("out-mask").onclick = function (event) {
+  if (event.target === this) this.hidden = true;
+};
+document.getElementById("out-no").onclick = function () {
+  document.getElementById("out-mask").hidden = true;
+};
+document.getElementById("out-go").onclick = function () {
+  var rows = redeemable();
+  var msg = document.getElementById("out-msg");
+  if (!rows.length) { msg.textContent = pageLine("eNoOut"); return; }
+  api("/api/app/redeem", { holding_id: rows[0].id }).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "转出失败");
+      return;
+    }
+    msg.className = "pf-msg ok";
+    msg.textContent = pageLine("eOutSent");
+    loadHold();
+  });
+};
+function loadMe() {
+  api("/api/app/me").then(function (res) {
+    var d = (!res || res.code) ? {} : (res.data || {});
+    wallet = d.available || "0";
+    paint();
+    showPage("me");
+  });
+}
+function loadHold() {
+  api("/api/app/holdings").then(function (res) {
+    bag = (!res || res.code) ? [] : (res.data || []);
+    paint();
+    showPage("hold");
+  });
+}
+whenSite(function () {
+  applyWords();
+  api("/api/app/product?id=" + encodeURIComponent(id)).then(function (res) {
+    if (!res || res.code) {
+      document.getElementById("msg").textContent = pageMsg((res && res.msg) || "加载失败");
+      showPage("product");
+      showPage("site");
+      return;
+    }
+    product = res.data || {};
+    paint();
+    showPage("product");
+    showPage("site");
+  });
+});
+loadHold();
+loadMe();
+</script>
+</body>
+</html>

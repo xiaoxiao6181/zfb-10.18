@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=bar1">
+</head>
+<body class="dep wait">
+<main>
+<div class="dep-head"><strong data-k="depTitle"></strong></div>
+<div class="dep-card">
+<div class="dep-row"><span data-k="account"></span><b id="account">—</b></div>
+<div class="dep-row"><span data-k="balance"></span><b id="bal">—</b></div>
+</div>
+<form class="dep-form" id="f" autocomplete="off" novalidate>
+<div class="dep-line"><span data-k="payWay"></span><select id="ch" name="channel_id"><option value="" data-k="pickPay"></option></select></div>
+<div class="dep-line"><span data-k="depAmount"></span><input id="amount" name="recharge_amount" inputmode="decimal" autocomplete="off" data-ph="depAmountPh"></div>
+<div class="dep-line" id="rate-line"><span data-k="rate"></span><b id="rate">—</b></div>
+<div class="dep-line" id="got-line"><span data-k="got"></span><b id="got">—</b></div>
+<div class="dep-line" id="note-line"><span data-k="note"></span><input id="note" name="recharge_note" maxlength="255" autocomplete="off" data-ph="notePh"></div>
+<div class="dep-line dep-proof" id="proof-line"><span data-k="proof"></span><label class="dep-pick" id="proof-box"><svg class="dep-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 16V7.8L8.4 10.4 7 9l5-5 5 5-1.4 1.4L13 7.8V16z"/><path d="M5 18h14v2H5z"/></svg><em data-k="upload"></em><img id="proof-preview" class="dep-preview" alt="" hidden><input id="proof" type="file" accept="image/jpeg,image/png,image/webp"></label></div>
+</form>
+<button class="dep-go" id="go" type="button" data-k="ok"></button>
+<p class="dep-msg" id="msg"></p>
+</main>
+<div class="dep-mask" id="kyc-mask" hidden>
+<div class="dep-ask">
+<p id="kyc-ask"></p>
+<button type="button" id="kyc-go" data-k="ok"></button>
+</div>
+</div>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a class="on" href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+var channels = [];
+var kycState = "";
+function needKyc(status) {
+  kycState = status || "none";
+  var ok = kycState === "passed";
+  var mask = document.getElementById("kyc-mask");
+  if (ok) {
+    mask.hidden = true;
+    return true;
+  }
+  document.getElementById("kyc-ask").textContent = pageLine(kycState === "pending" ? "kycWaitDep" : "kycFirst");
+  mask.hidden = false;
+  return false;
+}
+document.getElementById("kyc-go").onclick = function () {
+  location.href = "kyc.html";
+};
+var depOn = { rate: true, got: true, note: true, voucher: true };
+var gate = { me: false, ch: false, site: false };
+function showPage(part) {
+  if (part) gate[part] = true;
+  if (gate.me && gate.ch && gate.site) document.body.classList.add("ready");
+}
+function applyDep(d) {
+  depOn.rate = !d || d.dep_rate !== "0";
+  depOn.got = !d || d.dep_got !== "0";
+  depOn.note = !d || d.dep_note !== "0";
+  depOn.voucher = !d || d.dep_voucher !== "0";
+  document.getElementById("rate-line").hidden = !depOn.rate;
+  document.getElementById("got-line").hidden = !depOn.got;
+  document.getElementById("note-line").hidden = !depOn.note;
+  document.getElementById("proof-line").hidden = !depOn.voucher;
+  document.getElementById("note").required = false;
+}
+window.onSite = function (d) { applyDep(d); };
+var shownBal = null;
+whenSite(function (d) {
+  paintKeys();
+  document.title = pageLine("depTitle");
+  if (shownBal != null) document.getElementById("bal").textContent = money(shownBal);
+  applyDep(d);
+  showPage("site");
+  if (kycState) needKyc(kycState);
+});
+function paintMe(d) {
+  document.getElementById("account").textContent = d.username || "—";
+  document.getElementById("bal").textContent = window.money ? money(d.available || "0") : (d.available || "0.00");
+  shownBal = d.available || "0";
+}
+function loadMe() {
+  api("/api/app/me").then(function (res) {
+    if (res && !res.code) {
+      var d = res.data || {};
+      paintMe(d);
+      needKyc(d.kyc_status);
+    }
+    showPage("me");
+  });
+}
+function currentChannel() {
+  var id = document.getElementById("ch").value;
+  for (var i = 0; i < channels.length; i++) {
+    if (String(channels[i].id) === id) return channels[i];
+  }
+  return null;
+}
+function paintRate() {
+  var row = currentChannel();
+  var rate = row ? String(row.recharge_rate || "") : "";
+  var amount = document.getElementById("amount").value.trim();
+  var n = Number(amount);
+  var r = Number(rate);
+  document.getElementById("rate").textContent = rate || "—";
+  if (!rate || !amount || !isFinite(n) || n <= 0 || !isFinite(r) || r <= 0) {
+    document.getElementById("got").textContent = "—";
+    return;
+  }
+  document.getElementById("got").textContent = (Math.round(n * r * 100) / 100).toFixed(2);
+}
+loadMe();
+api("/api/app/channels?side=recharge").then(function (res) {
+  channels = (!res || res.code) ? [] : (res.data || []);
+  var sel = document.getElementById("ch");
+  channels.forEach(function (row) {
+    var opt = document.createElement("option");
+    opt.value = String(row.id);
+    opt.textContent = row.bank_name || row.currency || pageLine("payWay");
+    sel.appendChild(opt);
+  });
+  sel.onchange = paintRate;
+  paintRate();
+  showPage("ch");
+});
+document.getElementById("amount").oninput = paintRate;
+document.getElementById("proof").onchange = function () {
+  var file = this.files && this.files[0];
+  var img = document.getElementById("proof-preview");
+  var pick = document.getElementById("proof-box");
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    img.src = String(reader.result || "");
+    img.hidden = false;
+    img.dataset.raw = img.src;
+    if (pick) pick.classList.add("has");
+  };
+  reader.readAsDataURL(file);
+};
+document.getElementById("go").onclick = function () {
+  if (!needKyc(kycState)) return;
+  var sel = document.getElementById("ch");
+  var amount = document.getElementById("amount");
+  var note = document.getElementById("note");
+  var img = document.getElementById("proof-preview");
+  var msg = document.getElementById("msg");
+  msg.className = "dep-msg";
+  if (!sel.value) {
+    msg.textContent = pageLine("ePay");
+    return;
+  }
+  if (!String(amount.value || "").trim()) {
+    msg.textContent = pageLine("eDepAmount");
+    return;
+  }
+  if (depOn.note && !note.value.trim()) {
+    msg.textContent = pageLine("eNote");
+    return;
+  }
+  if (depOn.voucher && !img.dataset.raw) {
+    msg.textContent = pageLine("eProof");
+    return;
+  }
+  api("/api/app/recharge", {
+    channel_id: sel.value,
+    amount: amount.value.trim(),
+    note: document.getElementById("note").value.trim(),
+    voucher: img.dataset.raw
+  }).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "提交失败");
+      return;
+    }
+    if (window.SITE && window.SITE.recharge_cs === "1" && window.jumpMemberService) {
+      window.jumpMemberService(1);
+      return;
+    }
+    location.href = "deposits.html";
+    amount.value = "";
+    document.getElementById("note").value = "";
+    img.hidden = true;
+    img.removeAttribute("src");
+    delete img.dataset.raw;
+    document.getElementById("proof").value = "";
+    var pick = document.getElementById("proof-box");
+    if (pick) pick.classList.remove("has");
+    paintRate();
+    loadMe();
+  });
+};
+</script>
+</body>
+</html>

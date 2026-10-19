@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=bar1">
+</head>
+<body class="dep wait">
+<main>
+<div class="dep-head"><strong data-k="incomeTitle"></strong></div>
+<section class="wd-list"><div id="rows"></div></section>
+</main>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a class="on" href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+function line(label, value) {
+  var p = document.createElement("p");
+  var span = document.createElement("span");
+  span.textContent = label;
+  var b = document.createElement("b");
+  b.textContent = value == null || value === "" ? "—" : String(value);
+  p.appendChild(span);
+  p.appendChild(b);
+  return p;
+}
+function whenText(raw) {
+  return String(raw || "").replace("T", " ").slice(0, 19);
+}
+whenSite(function () {
+  paintKeys();
+  document.title = pageLine("incomeTitle");
+  api("/api/app/holdings").then(function (res) {
+    var box = document.getElementById("rows");
+    var rows = (!res || res.code) ? null : (res.data || []);
+    if (!rows) {
+      var fail = document.createElement("p");
+      fail.className = "wd-empty";
+      fail.textContent = pageMsg((res && res.msg) || "加载失败");
+      box.appendChild(fail);
+    } else if (!rows.length) {
+      var empty = document.createElement("p");
+      empty.className = "wd-empty";
+      empty.textContent = pageLine("empty");
+      box.appendChild(empty);
+    } else {
+      rows.forEach(function (row) {
+        var ended = row.status === "redeemed";
+        var item = document.createElement("div");
+        item.className = "wd-item";
+        item.appendChild(line(pageLine("product"), pageName(row)));
+        item.appendChild(line(pageLine("principal"), money(row.amount)));
+        item.appendChild(line(pageLine("expect"), money(row.expected_profit)));
+        if (ended) item.appendChild(line(pageLine("actual"), money(row.actual_profit || "0")));
+        item.appendChild(line(pageLine("status"), pageLine(ended ? "ended" : "running")));
+        item.appendChild(line(pageLine("startAt"), whenText(row.start_at)));
+        item.appendChild(line(pageLine("endAt"), whenText(row.mature_at)));
+        box.appendChild(item);
+      });
+    }
+    document.body.classList.add("ready");
+  });
+});
+</script>
+</body>
+</html>

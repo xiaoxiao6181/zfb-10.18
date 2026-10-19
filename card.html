@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=card7">
+</head>
+<body class="bind wait">
+<main>
+<div class="bind-bar">
+<a class="bind-back" id="back" href="home.html" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></a>
+<strong id="card-title"></strong>
+</div>
+<label id="lab-name"><span data-k="realName"></span><input id="name" readonly></label>
+<label id="lab-id"><span data-k="idNo"></span><input id="idno" readonly></label>
+<label id="lab-bank"><span data-k="bank"></span><input id="bank" maxlength="32" autocomplete="off"></label>
+<label id="lab-card"><span data-k="cardNo"></span><input id="card" inputmode="numeric" maxlength="19" autocomplete="off"></label>
+<label id="lab-alipay"><span data-k="alipayLab"></span><input id="alipay" maxlength="64" autocomplete="off"></label>
+<label id="lab-usdt"><span data-k="usdtLab"></span><input id="usdt" maxlength="128" autocomplete="off"></label>
+<button class="bind-go" id="go" type="button" data-k="ok"></button>
+<p class="bind-msg" id="msg"></p>
+</main>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+document.getElementById("back").onclick = function (event) {
+  if (history.length > 1) {
+    event.preventDefault();
+    history.back();
+  }
+};
+function say(text, ok) {
+  var node = document.getElementById("msg");
+  node.textContent = text || "";
+  node.className = ok ? "bind-msg ok" : "bind-msg";
+}
+var gate = { card: false, site: false };
+function showPage(part) {
+  gate[part] = true;
+  if (gate.card && gate.site) document.body.classList.add("ready");
+}
+function bindOn(key) {
+  return !window.SITE || window.SITE[key] !== "0";
+}
+function applyBind() {
+  document.getElementById("lab-id").hidden = !bindOn("bind_id");
+  document.getElementById("lab-bank").hidden = !bindOn("bind_bank");
+  document.getElementById("lab-card").hidden = !bindOn("bind_card");
+  document.getElementById("lab-alipay").hidden = !bindOn("bind_alipay");
+  document.getElementById("lab-usdt").hidden = !bindOn("bind_usdt");
+}
+whenSite(function () {
+  paintKeys();
+  var title = t("card");
+  document.getElementById("card-title").textContent = title;
+  document.title = title;
+  applyBind();
+  showPage("site");
+});
+api("/api/app/card").then(function (res) {
+  if (!res || res.code) say(pageMsg((res && res.msg) || "加载失败"));
+  else {
+    var d = res.data || {};
+    document.getElementById("name").value = d.real_name || "";
+    document.getElementById("idno").value = d.id_no || "";
+    document.getElementById("bank").value = d.bank_name || "";
+    document.getElementById("card").value = d.card_no || "";
+    document.getElementById("alipay").value = d.alipay || "";
+    document.getElementById("usdt").value = d.usdt || "";
+  }
+  showPage("card");
+});
+document.getElementById("go").onclick = function () {
+  say("");
+  if (!document.getElementById("name").value.trim()) {
+    say(pageLine("eKycFirst"));
+    return;
+  }
+  if (bindOn("bind_id") && !document.getElementById("idno").value.trim()) {
+    say(pageLine("eKycFirst"));
+    return;
+  }
+  var bank = document.getElementById("bank").value.trim();
+  var card = document.getElementById("card").value.replace(/\s+/g, "");
+  var alipay = document.getElementById("alipay").value.trim();
+  var usdt = document.getElementById("usdt").value.trim();
+  if (bindOn("bind_bank") && !bank) {
+    say(pageLine("eBank"));
+    return;
+  }
+  if (bindOn("bind_card") && card.indexOf("****") < 0 && !/^\d{12,19}$/.test(card)) {
+    say(pageLine("eCardFmt"));
+    return;
+  }
+  if (bindOn("bind_alipay") && !alipay) {
+    say(pageLine("eAlipay"));
+    return;
+  }
+  if (bindOn("bind_usdt") && !usdt) {
+    say(pageLine("eUsdt"));
+    return;
+  }
+  api("/api/app/card", {
+    bank_name: bindOn("bind_bank") ? bank : "",
+    card_no: bindOn("bind_card") ? card : "",
+    alipay: bindOn("bind_alipay") ? alipay : "",
+    usdt: bindOn("bind_usdt") ? usdt : ""
+  }).then(function (res) {
+    if (!res || res.code) {
+      say(pageMsg((res && res.msg) || "保存失败"));
+      return;
+    }
+    say(pageLine("saved"), true);
+  });
+};
+</script>
+</body>
+</html>

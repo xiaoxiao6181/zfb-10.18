@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=logp1">
+</head>
+<body class="dep logs wait">
+<main>
+<div class="dep-head">
+<strong data-k="logsTitle"></strong>
+<div class="log-tabs">
+<button type="button" data-tab="fund" class="on" data-k="fundTab"></button>
+<button type="button" data-tab="recharge" data-k="rechargeTab"></button>
+<button type="button" data-tab="withdraw" data-k="withdrawTab"></button>
+<button type="button" data-tab="hold" data-k="holdTab"></button>
+</div>
+</div>
+<section class="wd-list"><div id="rows"></div></section>
+</main>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a class="on" href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+var cache = {};
+var current = "fund";
+function line(label, value) {
+  var p = document.createElement("p");
+  var span = document.createElement("span");
+  span.textContent = label;
+  var b = document.createElement("b");
+  b.textContent = value == null || value === "" ? "—" : String(value);
+  p.appendChild(span);
+  p.appendChild(b);
+  return p;
+}
+function whenText(raw) {
+  return String(raw || "").replace("T", " ").slice(0, 19);
+}
+function maskNo(raw) {
+  var s = String(raw || "").replace(/\s+/g, "");
+  if (!s) return "";
+  if (s.length <= 8) return s.length <= 2 ? "****" : s.slice(0, 1) + "****" + s.slice(-1);
+  return s.slice(0, 4) + "****" + s.slice(-4);
+}
+function note(box, text) {
+  var p = document.createElement("p");
+  p.className = "wd-empty";
+  p.textContent = text;
+  box.appendChild(p);
+}
+function fill(box, rows, draw) {
+  if (!rows) { note(box, pageLine("loadFail")); return; }
+  if (!rows.length) { note(box, pageLine("empty")); return; }
+  rows.forEach(function (row) {
+    var item = document.createElement("div");
+    item.className = "wd-item";
+    draw(item, row);
+    box.appendChild(item);
+  });
+}
+function drawFund(item, row) {
+  item.appendChild(line(pageLine("typeLab"), pageMsg(row.type_text)));
+  if (row.product_name) item.appendChild(line(pageLine("product"), pageName(row)));
+  item.appendChild(line(pageLine("amount"), money(row.amount)));
+  item.appendChild(line(pageLine("avail"), money(row.available_after)));
+  item.appendChild(line(pageLine("frozen"), money(row.frozen_after)));
+  item.appendChild(line(pageLine("time"), whenText(row.created_at)));
+  item.appendChild(line(pageLine("orderNo"), row.order_no || pageLine("none")));
+}
+function drawRecharge(item, row) {
+  item.appendChild(line(pageLine("orderNo"), row.order_no || row.id));
+  item.appendChild(line(pageLine("amount"), money(row.amount)));
+  item.appendChild(line(pageLine("status"), pageMsg(row.status_text)));
+  item.appendChild(line(pageLine("time"), whenText(row.created_at)));
+  if (row.note) item.appendChild(line(pageLine("note"), row.note));
+}
+function drawWithdraw(item, row) {
+  item.appendChild(line(pageLine("orderNo"), row.order_no || row.id));
+  item.appendChild(line(pageLine("amount"), money(row.amount)));
+  item.appendChild(line(pageLine("holder"), row.holder_name));
+  item.appendChild(line(pageLine("card"), maskNo(row.card_no)));
+  item.appendChild(line(pageLine("status"), pageMsg(row.status_text)));
+  item.appendChild(line(pageLine("time"), whenText(row.created_at)));
+  if (row.status === "rejected") item.appendChild(line(pageLine("reject"), row.audit_remark || ""));
+}
+function drawHold(item, row) {
+  var ended = row.status === "redeemed";
+  item.appendChild(line(pageLine("product"), pageName(row)));
+  item.appendChild(line(pageLine("principal"), money(row.amount)));
+  item.appendChild(line(pageLine("expect"), money(row.expected_profit)));
+  if (ended) item.appendChild(line(pageLine("actual"), money(row.actual_profit || "0")));
+  item.appendChild(line(pageLine("status"), pageLine(ended ? "ended" : "running")));
+  item.appendChild(line(pageLine("startAt"), whenText(row.start_at)));
+  item.appendChild(line(pageLine("endAt"), whenText(row.mature_at)));
+}
+var kinds = {
+  fund: { url: "/api/app/logs", draw: drawFund },
+  recharge: { url: "/api/app/recharges", draw: drawRecharge },
+  withdraw: { url: "/api/app/withdraws", draw: drawWithdraw },
+  hold: { url: "/api/app/holdings", draw: drawHold }
+};
+function paint(kind) {
+  var box = document.getElementById("rows");
+  box.textContent = "";
+  fill(box, cache[kind], kinds[kind].draw);
+}
+var siteOn = false;
+function openTab(kind) {
+  current = kind;
+  Array.prototype.forEach.call(document.querySelectorAll(".log-tabs button"), function (btn) {
+    btn.classList.toggle("on", btn.getAttribute("data-tab") === kind);
+  });
+  if (!siteOn) return;
+  if (cache[kind]) { paint(kind); document.body.classList.add("ready"); return; }
+  api(kinds[kind].url).then(function (res) {
+    cache[kind] = (!res || res.code) ? null : (res.data || []);
+    if (current === kind) paint(kind);
+    document.body.classList.add("ready");
+  });
+}
+whenSite(function () {
+  paintKeys();
+  document.title = pageLine("logsTitle");
+  siteOn = true;
+  openTab(current);
+});
+Array.prototype.forEach.call(document.querySelectorAll(".log-tabs button"), function (btn) {
+  btn.onclick = function () { openTab(btn.getAttribute("data-tab")); };
+});
+var asked = new URLSearchParams(location.search).get("tab") || "";
+if (kinds[asked]) current = asked;
+openTab(current);
+</script>
+</body>
+</html>

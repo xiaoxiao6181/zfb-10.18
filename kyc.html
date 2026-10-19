@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=bar1">
+</head>
+<body class="dep wait">
+<main>
+<div class="dep-head"><strong data-k="kycTitle"></strong></div>
+<div class="dep-form" id="done" hidden>
+<div class="dep-line"><span data-k="idType"></span><b id="show-type">—</b></div>
+<div class="dep-line"><span data-k="realName"></span><b id="show-name">—</b></div>
+<div class="dep-line"><span data-k="idNo"></span><b id="show-no">—</b></div>
+<div class="dep-line" id="show-front-line" hidden><span data-k="idFront"></span><img class="kyc-shot" id="show-front" alt=""></div>
+<div class="dep-line" id="show-back-line" hidden><span data-k="idBack"></span><img class="kyc-shot" id="show-back" alt=""></div>
+</div>
+<form class="dep-form" id="f" hidden novalidate>
+<div class="dep-line"><span data-k="idType"></span><select id="id-type" name="id_type"><option value="idcard" data-k="idCard"></option><option value="passport" data-k="passport"></option><option value="other" data-k="otherType"></option></select></div>
+<div class="dep-line"><span data-k="realName"></span><input id="real-name" name="real_name" maxlength="32" data-ph="namePh"></div>
+<div class="dep-line"><span data-k="idNo"></span><input id="id-no" name="id_no" maxlength="32" data-ph="idPh"></div>
+<div class="dep-line dep-proof" id="front-line"><span data-k="idFront"></span><label class="dep-pick" id="front-box"><svg class="dep-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 16V7.8L8.4 10.4 7 9l5-5 5 5-1.4 1.4L13 7.8V16z"/><path d="M5 18h14v2H5z"/></svg><em data-k="upload"></em><img id="front-preview" class="dep-preview" alt="" hidden><input id="front" type="file" accept="image/jpeg,image/png,image/webp"></label></div>
+<div class="dep-line dep-proof" id="back-line"><span data-k="idBack"></span><label class="dep-pick" id="back-box"><svg class="dep-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 16V7.8L8.4 10.4 7 9l5-5 5 5-1.4 1.4L13 7.8V16z"/><path d="M5 18h14v2H5z"/></svg><em data-k="upload"></em><img id="back-preview" class="dep-preview" alt="" hidden><input id="back" type="file" accept="image/jpeg,image/png,image/webp"></label></div>
+</form>
+<button class="dep-go" id="go" type="button" hidden data-k="submit"></button>
+<p class="dep-msg" id="info"></p>
+<p class="dep-msg" id="msg"></p>
+</main>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+var needPic = true;
+function applyPic(on) {
+  needPic = !!on;
+  document.getElementById("front-line").hidden = !on;
+  document.getElementById("back-line").hidden = !on;
+}
+window.onSite = function (d) { applyPic(!d || d.kyc_pic !== "0"); };
+if (window.SITE) applyPic(window.SITE.kyc_pic !== "0");
+function shrinkPhoto(file, done) {
+  var url = URL.createObjectURL(file);
+  var pic = new Image();
+  pic.onload = function () {
+    var max = 1600;
+    var scale = Math.min(1, max / Math.max(pic.width || 1, pic.height || 1));
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(pic.width * scale));
+    canvas.height = Math.max(1, Math.round(pic.height * scale));
+    canvas.getContext("2d").drawImage(pic, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    done(canvas.toDataURL("image/jpeg", 0.82));
+  };
+  pic.onerror = function () {
+    URL.revokeObjectURL(url);
+    var reader = new FileReader();
+    reader.onload = function () { done(String(reader.result || "")); };
+    reader.readAsDataURL(file);
+  };
+  pic.src = url;
+}
+function bindPhoto(inputId, previewId, boxId) {
+  document.getElementById(inputId).onchange = function () {
+    var file = this.files && this.files[0];
+    var img = document.getElementById(previewId);
+    var box = document.getElementById(boxId);
+    if (!file) return;
+    shrinkPhoto(file, function (raw) {
+      img.src = raw;
+      img.hidden = false;
+      img.dataset.raw = raw;
+      box.classList.add("has");
+    });
+  };
+}
+bindPhoto("front", "front-preview", "front-box");
+bindPhoto("back", "back-preview", "back-box");
+function showPage() {
+  document.body.classList.add("ready");
+}
+function paintShot(imgId, lineId, url) {
+  var img = document.getElementById(imgId);
+  var line = document.getElementById(lineId);
+  var src = url ? window.fileUrl(url) : "";
+  img.hidden = !src;
+  line.hidden = !src;
+  img.src = src || "";
+}
+function load() {
+  api("/api/app/kyc").then(function (res) {
+    if (!res || res.code) {
+      document.getElementById("info").textContent = pageMsg((res && res.msg) || "加载失败");
+      showPage();
+      return;
+    }
+    var d = res.data || {};
+    var locked = d.status === "pending" || d.status === "passed";
+    document.getElementById("f").hidden = locked;
+    document.getElementById("go").hidden = locked;
+    document.getElementById("done").hidden = !locked;
+    document.getElementById("show-type").textContent = pageMsg(d.id_type_text || "身份证");
+    document.getElementById("show-name").textContent = d.real_name || "—";
+    document.getElementById("show-no").textContent = d.id_no || "—";
+    var passed = d.status === "passed";
+    paintShot("show-front", "show-front-line", passed ? "" : d.front_url);
+    paintShot("show-back", "show-back-line", passed ? "" : d.back_url);
+    var text = pageLine("kycStatus") + pageMsg(d.status_text || "未提交");
+    if (d.audit_remark) text += " " + d.audit_remark;
+    if (d.status === "none" || d.status === "rejected") text += " " + pageLine("kycUpload");
+    document.getElementById("info").textContent = text;
+    showPage();
+  });
+}
+whenSite(function () {
+  paintKeys();
+  document.title = pageLine("kycTitle");
+  load();
+});
+document.getElementById("go").onclick = function () {
+  var name = document.getElementById("real-name");
+  var no = document.getElementById("id-no");
+  var msg = document.getElementById("msg");
+  msg.className = "dep-msg";
+  if (!name.value.trim()) { msg.textContent = pageLine("eName"); return; }
+  if (!no.value.trim()) { msg.textContent = pageLine("eId"); return; }
+  var data = {
+    real_name: name.value.trim(),
+    id_type: document.getElementById("id-type").value,
+    id_no: no.value.trim()
+  };
+  if (needPic) {
+    var front = document.getElementById("front-preview").dataset.raw || "";
+    var back = document.getElementById("back-preview").dataset.raw || "";
+    if (!front || !back) {
+      msg.textContent = pageLine("ePhotos");
+      return;
+    }
+    data.front = front;
+    data.back = back;
+  }
+  api("/api/app/kyc", data).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "提交失败");
+      return;
+    }
+    msg.className = "dep-msg ok";
+    msg.textContent = res.data && res.data.status === "pending" ? pageLine("wdSent") : pageLine("stPassed");
+    load();
+  });
+};
+</script>
+</body>
+</html>

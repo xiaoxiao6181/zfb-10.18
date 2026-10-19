@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<link rel="stylesheet" href="style.css?v=mine3">
+</head>
+<body class="bind wait">
+<main>
+<div class="bind-bar">
+<a class="bind-back" href="setup.html" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></a>
+<strong id="title"></strong>
+</div>
+<label id="lab-old"><span data-k="oldPass"></span><input id="old" type="password" maxlength="32" autocomplete="off"></label>
+<label id="lab-new"><span data-k="newPass"></span><input id="next" type="password" maxlength="32" autocomplete="off"></label>
+<label id="lab-again"><span data-k="againPass"></span><input id="again" type="password" maxlength="32" autocomplete="off"></label>
+<button class="bind-go" id="go" type="button" data-k="ok"></button>
+<p class="bind-msg" id="msg"></p>
+</main>
+<nav class="mh-tab">
+<a href="home.html"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>首页</a>
+<a href="recharge.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>存款</a>
+<a href="#cs" data-cs><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M4 12v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"/><path d="M20 12v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>客服</a>
+<a href="withdraw.html"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 15h4"/></svg>ATM</a>
+<a class="on" href="mine.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 19c1.2-3 3.4-4.5 7-4.5S17.8 16 19 19"/></svg>我的</a>
+</nav>
+<script src="config.js"></script>
+<script>loadJs("common.js");</script>
+<script src="page-text.js?v=3"></script>
+<script>
+requireLogin();
+var kind = new URLSearchParams(location.search).get("kind") === "trade" ? "trade" : "login";
+whenSite(function () {
+  paintKeys();
+  var title = pageLine(kind === "trade" ? "passTrade" : "passLogin");
+  document.title = title;
+  document.getElementById("title").textContent = title;
+  document.body.classList.add("ready");
+});
+document.getElementById("go").onclick = function () {
+  var msg = document.getElementById("msg");
+  var oldPass = document.getElementById("old").value;
+  var next = document.getElementById("next").value;
+  var again = document.getElementById("again").value;
+  msg.className = "bind-msg";
+  if (!oldPass && kind === "login") { msg.textContent = pageLine("eOld"); return; }
+  if (next.length < 6 || next.length > 32) { msg.textContent = pageLine(kind === "trade" ? "eLenTrade" : "eLenLogin"); return; }
+  if (next !== again) { msg.textContent = pageLine("eMismatch"); return; }
+  api("/api/app/password", { kind: kind, old_password: oldPass, password: next, password2: again }).then(function (res) {
+    if (!res || res.code) {
+      msg.textContent = pageMsg((res && res.msg) || "提交失败");
+      return;
+    }
+    msg.className = "bind-msg ok";
+    msg.textContent = pageLine("eSaved");
+    document.getElementById("old").value = "";
+    document.getElementById("next").value = "";
+    document.getElementById("again").value = "";
+  });
+};
+</script>
+</body>
+</html>

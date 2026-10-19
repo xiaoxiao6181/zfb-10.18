@@ -1,0 +1,4 @@
+/config.js
+  Cache-Control: public, max-age=0, must-revalidate
+/common.js
+  Cache-Control: public, max-age=0, must-revalidate
